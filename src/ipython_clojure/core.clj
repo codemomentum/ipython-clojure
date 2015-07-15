@@ -130,7 +130,7 @@
                       {:status           "ok"
                        :execution_count  @execution-count
                        :user_variables   {}
-                       :payload          [{}]
+                       :payload          [{:source "edit"}]
                        :user_expressions {}}
                       parent-header
                       {:dependencies_met "True"
