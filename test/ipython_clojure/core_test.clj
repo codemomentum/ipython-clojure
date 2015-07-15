@@ -3,14 +3,14 @@
   (:require [clojure.test :refer :all]
             [ipython-clojure.core :refer :all]))
 
-(fact "setting up a zeromq socket works"
-      (let [socket (setup-publisher 127.0.0.1 4891)]
-        (write-message socket "ping") => "ok")
+;(fact "setting up a zeromq socket works"
+;      (let [socket (setup-publisher "127.0.0.1" 4891)]
+;        (write-message socket "ping") => "ok"))
 
 ;; this is what we get called with originally
 
 (def test-config {"stdin_port" 48691
-                  "ip" 127.0.0.1
+                  "ip" "127.0.0.1"
                   "control_port" 44808
                   "hb_port" 49691
                   "signature_scheme" "hmac-sha256"

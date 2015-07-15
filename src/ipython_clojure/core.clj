@@ -187,10 +187,13 @@
         (case msg-type
           "kernel_info_request" (kernel-info-reply message shell-socket)
           "execute_request" (execute-request message)
+          "history_request" nil
+          ;TODO history_request
           (do
             (println "Message type" msg-type "not handled yet. Exiting.")
             (println "Message dump:" message)
-            (System/exit -1)))))))
+            (System/exit -1)
+            ))))))
 
 (defrecord Heartbeat [addr]
     Runnable

@@ -23,3 +23,9 @@ c.Session.keyfile = b''
 
 ## status
 Should work for simple stuff in the REPL. Doesn't handle errors or any type of complex data from Clojure.
+
+## fork note
+bumped clojure version to 1.7.0
+ipython 3.1.0
+
+
