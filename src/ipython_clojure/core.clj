@@ -7,7 +7,6 @@
            [clj-time.format :as time-format]
            [com.keminglabs.zmq-async.core :refer [register-socket!]]
            [clojure.core.async :refer [sliding-buffer >! <! go chan close!]])
-  (:import [org.jeromq ZMQ])
   (:gen-class :main true))
 
 (defn prep-config [args]
@@ -16,53 +15,44 @@
 (defn address [config service]
   (str (:transport config) "://" (:ip config) ":" (service config)))
 
-(defn get-iopub-socket [addr]
-  (let [context (zmq/context 1)]
-    (doto zmq/socket context :pub) (zmq/bind addr)))
-
-(defn get-shell-socket [addr]
-  (let [context (zmq/context 2)]
-    (doto (zmq/socket context :router) (zmq/bind addr))))
-
 (defn uuid [] (str (java.util.UUID/randomUUID)))
-
 
 (def kernel-info-content
   {:protocol_version [4 1]
-   :ipython_version [2 0 0 "dev"]
-   :language_version [1 5 1]
-   :language "clojure"})
+   :ipython_version  [3 1 0 "dev"]
+   :language_version [1 7 0]
+   :language         "clojure"})
 
 
 (defn now []
   "Returns current ISO 8601 compliant date."
   (let [current-date-time (time/to-time-zone (time/now) (time/default-time-zone))]
     (time-format/unparse
-     (time-format/with-zone (time-format/formatters :date-time-no-ms)
-                            (.getZone current-date-time))
-     current-date-time)))
+      (time-format/with-zone (time-format/formatters :date-time-no-ms)
+                             (.getZone current-date-time))
+      current-date-time)))
 
 (defn kernel-info-header [message]
-  (let [header (cheshire/generate-string {:date (get-in message [:header :date])
-                                          :msg_id (uuid)
+  (let [header (cheshire/generate-string {:date     (get-in message [:header :date])
+                                          :msg_id   (uuid)
                                           :username (get-in message [:header :username])
-                                          :session (get-in message [:header :session])
+                                          :session  (get-in message [:header :session])
                                           :msg_type "kernel_info_reply"})]
     header))
 
 (defn send-message-piece [socket msg]
-;  (println "Sending piece " msg)
+  ;  (println "Sending piece " msg)
   (zmq/send socket (.getBytes msg) zmq/send-more))
 
 (defn finish-message [socket msg]
-;  (println "Sending message " msg)
+  ;  (println "Sending message " msg)
   (zmq/send socket (.getBytes msg)))
 
 (defn kernel-info-reply [message socket]
   (let [header (kernel-info-header message)
         parent_header (cheshire/generate-string (:header message))
         metadata (cheshire/generate-string {})
-        content  (cheshire/generate-string kernel-info-content)]
+        content (cheshire/generate-string kernel-info-content)]
     (send-message-piece socket (get-in message [:header :session]))
     (send-message-piece socket "<IDS|MSG>")
     (send-message-piece socket "")
@@ -78,16 +68,16 @@
 
 (defn read-until-delimiter [socket]
   (let [preamble (doall (drop-last
-                         (take-while (comp not #(= "<IDS|MSG>" %))
-                                     (repeatedly #(read-blob socket)))))]
-;    (println "PREABMLE:" preamble)
+                          (take-while (comp not #(= "<IDS|MSG>" %))
+                                      (repeatedly #(read-blob socket)))))]
+    ;    (println "PREABMLE:" preamble)
     preamble))
 
 (defn new-header [msg_type session-id]
-  {:date (now)
-   :msg_id (uuid)
+  {:date     (now)
+   :msg_id   (uuid)
    :username "kernel"
-   :session session-id
+   :session  session-id
    :msg_type msg_type})
 
 (defn status-content [status]
@@ -95,12 +85,12 @@
 
 (defn pyin-content [execution-count message]
   {:execution_count execution-count
-   :code (get-in message [:content :code])})
+   :code            (get-in message [:content :code])})
 
 (defn pyout-content [execution-count message executer]
   {:execution_count execution-count
-   :data {:text/plain (pr-str (eval (read-string (get-in message [:content :code]))))}
-   :metadata {}
+   :data            {:text/plain (pr-str (eval (read-string (get-in message [:content :code]))))}
+   :metadata        {}
    })
 
 
@@ -119,12 +109,12 @@
 
 
 (defn read-message [socket]
-  {:uuid (read-until-delimiter socket)
-   :signature (read-blob socket)
-   :header (cheshire/parse-string (read-blob socket) keyword)
+  {:uuid          (read-until-delimiter socket)
+   :signature     (read-blob socket)
+   :header        (cheshire/parse-string (read-blob socket) keyword)
    :parent-header (cheshire/parse-string (read-blob socket) keyword)
-   :metadata (cheshire/parse-string (read-blob socket) keyword)
-   :content (cheshire/parse-string (read-blob socket) keyword)})
+   :metadata      (cheshire/parse-string (read-blob socket) keyword)
+   :content       (cheshire/parse-string (read-blob socket) keyword)})
 
 (defn execute-request-handler [shell-socket iopub-socket executer]
   (let [execution-count (atom 0N)]
@@ -137,18 +127,18 @@
         (send-message iopub-socket "pyin" (pyin-content @execution-count message)
                       parent-header {} session-id)
         (send-message shell-socket "execute_reply"
-                      {:status "ok"
-                       :execution_count @execution-count
-                       :user_variables {}
-                       :payload [{}]
+                      {:status           "ok"
+                       :execution_count  @execution-count
+                       :user_variables   {}
+                       :payload          [{}]
                        :user_expressions {}}
                       parent-header
                       {:dependencies_met "True"
-                       :engine session-id
-                       :status "ok"
-                       :started (now)} session-id)
-        (send-message iopub-socket "pyout"  (pyout-content @execution-count
-                                                           message executer)
+                       :engine           session-id
+                       :status           "ok"
+                       :started          (now)} session-id)
+        (send-message iopub-socket "pyout" (pyout-content @execution-count
+                                                          message executer)
                       parent-header {} session-id)
         (send-message iopub-socket "status" (status-content "idle")
                       parent-header {} session-id)))))
@@ -157,10 +147,10 @@
   "evaluates s-forms"
   ([request] (execute request *ns*))
   ([request user-ns]
-    (str
-      (try
-        (binding [*ns* user-ns] (eval (read-string request)))
-        (catch Exception e (.getLocalizedMessage e))))))
+   (str
+     (try
+       (binding [*ns* user-ns] (eval (read-string request)))
+       (catch Exception e (.getLocalizedMessage e))))))
 
 (defn generate-ns []
   "generates ns for client connection"
@@ -174,9 +164,9 @@
   (let [user-ns (generate-ns)]
     (fn [request]
       (str
-       (try
-         (binding [*ns* user-ns] (eval (read-string request)))
-         (catch Exception e (.getLocalizedMessage e)))))))
+        (try
+          (binding [*ns* user-ns] (eval (read-string request)))
+          (catch Exception e (.getLocalizedMessage e)))))))
 
 
 (defn configure-shell-handler [shell-socket iopub-socket]
@@ -196,14 +186,14 @@
             ))))))
 
 (defrecord Heartbeat [addr]
-    Runnable
-    (run [this]
-      (let [context (zmq/context 1)
-            socket (doto (zmq/socket context :rep)
-                     (zmq/bind addr))]
-        (while (not (.. Thread currentThread isInterrupted))
-          (let [message (zmq/receive socket)]
-            (zmq/send socket message))))))
+  Runnable
+  (run [this]
+    (let [context (zmq/context 1)
+          socket (doto (zmq/socket context :rep)
+                   (zmq/bind addr))]
+      (while (not (.. Thread currentThread isInterrupted))
+        (let [message (zmq/receive socket)]
+          (zmq/send socket message))))))
 
 (defrecord Shell [shell-addr iopub-addr]
   Runnable
